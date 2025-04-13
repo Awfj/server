@@ -218,8 +218,9 @@ export const getBlog = (req, res) =>{
 
 export const likeBlog = (req, res) =>{
     let user_id = req.user;
-    let {_id, isLikedByUser} = req.body
+    let {_id, isLikedByUser} = req.body;
     let incrementVal = !isLikedByUser ? 1 : -1;
+
     Blog.findOneAndUpdate({_id}, {$inc: {"activity.total_likes": incrementVal}})
     .then(blog => {
         if(!isLikedByUser){
@@ -249,7 +250,58 @@ export const likeBlog = (req, res) =>{
 export const isLikedByUser = (req, res) =>{
     let user_id = req.user;
     let {_id} = req.body;
+
     Notification.exists({user: user_id, type: 'like', blog: _id})
+    .then(result => {
+        return res.status(200).json({result})
+    })
+    .catch(err => {
+        return res.status(500).json({error: err.message})
+    })
+}
+
+export const bookmarkBlog = async(req, res) => {
+    try {
+        const userId = req.user; // Assuming user ID is available in req.user
+        const { _id: blogId } = req.body;
+    
+        // Find the user to check if the blog is already bookmarked
+        const user = await User.findById(userId);
+    
+        if (!user) {
+          return res.status(404).json({ error: 'User not found' });
+        }
+    
+        // Check if the blog is already bookmarked
+        const isBookmarked = user.bookmarkedPosts.includes(blogId);
+    
+        if (isBookmarked) {
+          // If already bookmarked, remove it
+          await User.findByIdAndUpdate(
+            userId,
+            { $pull: { bookmarkedPosts: blogId } },
+            { new: true }
+          );
+          return res.status(200).json({ message: 'Blog unbookmarked successfully' });
+        } else {
+          // If not bookmarked, add it
+          await User.findByIdAndUpdate(
+            userId,
+            { $addToSet: { bookmarkedPosts: blogId } }, // $addToSet prevents duplicates
+            { new: true }
+          );
+          return res.status(200).json({ message: 'Blog bookmarked successfully' });
+        }
+      } catch (error) {
+        return res.status(500).json({ error: error.message });
+      }
+}
+
+export const isBookmarkedByUser = (req, res) => {
+    let user_id = req.user;
+    let {_id} = req.body;
+
+    User.findOne({_id: user_id, bookmarkedPosts: _id})
     .then(result => {
         return res.status(200).json({result})
     })
