@@ -4,6 +4,7 @@ import Notification from "../Schema/Notification.js"
 import User from "../Schema/User.js"
 import ErrorHanlder from "../utils/Errorhandler.js"
 import {nanoid} from 'nanoid'
+
 export const createBlog = async(req, res, next) =>{
     try { 
         let authorId = req.user
@@ -60,6 +61,7 @@ export const createBlog = async(req, res, next) =>{
     }
 }
 
+// LATEST BLOGS
 export const latestBlog = (req, res, next) =>{
     try {
         let {page} = req.body
@@ -78,6 +80,22 @@ export const latestBlog = (req, res, next) =>{
         res.status(500).json({error: error.message})
     }
 }
+
+export const AllLatestBlogCount = (req, res) =>{
+    try {
+        Blog.countDocuments({draft: false})
+        .then(count =>{
+            return res.status(200).json({totalDocs: count})
+        })
+        .catch(err =>{
+            return res.status(500).json({error: err.message})
+        })
+    } catch (error) {
+        res.status(500).json({error: error.message})
+    }
+}
+
+// TRENDING BLOGS
 export const trendingBlog = (req, res, next) =>{
     try {
         let maxLimit = 5
@@ -91,6 +109,7 @@ export const trendingBlog = (req, res, next) =>{
     }
 }
 
+// SEARCH BLOGS
 export const searchBlog = (req, res, next) => {
     try {
         let { tag, page, query, author, limit, eliminate_blog } = req.body;
@@ -140,21 +159,6 @@ export const searchBlog = (req, res, next) => {
     }
 };
 
-
-export const AllLatestBlogCount = (req, res) =>{
-    try {
-        Blog.countDocuments({draft: false})
-        .then(count =>{
-            return res.status(200).json({totalDocs: count})
-        })
-        .catch(err =>{
-            return res.status(500).json({error: err.message})
-        })
-    } catch (error) {
-        res.status(500).json({error: error.message})
-    }
-}
-
 export const searchBlogsCount = (req, res) =>{
     try {
         let {tag, query, author } = req.body
@@ -191,6 +195,7 @@ export const searchBlogsCount = (req, res) =>{
     }
 }
 
+// WORKING WITH BLOGS
 export const getBlog = (req, res) =>{
     try {
         let {blog_id, draft, mode} = req.body;
@@ -247,18 +252,18 @@ export const likeBlog = (req, res) =>{
     })
 }
 
-export const isLikedByUser = (req, res) =>{
-    let user_id = req.user;
-    let {_id} = req.body;
+// export const isLikedByUser = (req, res) =>{
+//     let user_id = req.user;
+//     let {_id} = req.body;
 
-    Notification.exists({user: user_id, type: 'like', blog: _id})
-    .then(result => {
-        return res.status(200).json({result})
-    })
-    .catch(err => {
-        return res.status(500).json({error: err.message})
-    })
-}
+//     Notification.exists({user: user_id, type: 'like', blog: _id})
+//     .then(result => {
+//         return res.status(200).json({result})
+//     })
+//     .catch(err => {
+//         return res.status(500).json({error: err.message})
+//     })
+// }
 
 export const bookmarkBlog = async(req, res) => {
     try {
@@ -297,18 +302,35 @@ export const bookmarkBlog = async(req, res) => {
       }
 }
 
-export const isBookmarkedByUser = (req, res) => {
-    let user_id = req.user;
-    let {_id} = req.body;
+// export const isBookmarkedByUser = (req, res) => {
+//     let user_id = req.user;
+//     let {_id} = req.body;
 
-    User.findOne({_id: user_id, bookmarkedPosts: _id})
-    .then(result => {
-        return res.status(200).json({result})
-    })
-    .catch(err => {
-        return res.status(500).json({error: err.message})
-    })
-}
+//     User.findOne({_id: user_id, bookmarkedPosts: _id})
+//     .then(result => {
+//         return res.status(200).json({result})
+//     })
+//     .catch(err => {
+//         return res.status(500).json({error: err.message})
+//     })
+// }
+
+export const getUserInteractions = async (req, res) => {
+    try {
+      const userId = req.user;
+      const { _id: blogId } = req.body;
+  
+      // Check if the blog is liked by the user
+      const isLiked = await Notification.exists({ user: userId, type: 'like', blog: blogId });
+  
+      // Check if the blog is bookmarked by the user
+      const isBookmarked = await User.exists({ _id: userId, bookmarkedPosts: blogId });
+  
+      res.status(200).json({ isLiked, isBookmarked });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  };
 
 export const AddComment = async(req, res) =>{
     try {
@@ -504,6 +526,54 @@ export const userWrittenUserCount = (req, res) => {
         console.log(err.message)
         return res.status(500).json({error: err.message})
     })
+}
+
+export const getUserBookmarkedBlogs = async (req, res, next) => {
+    try {
+      const userId = req.user; // Assuming user ID is available in req.user
+      const { page = 1 } = req.body; // Default to page 1 if not provided
+      const maxLimit = 5;
+  
+      // Find the user and populate the bookmarkedPosts
+      const user = await User.findById(userId).populate({
+        path: 'bookmarkedPosts',
+        populate: {
+          path: 'author',
+          select: 'personal_info.profile_img personal_info.fullname personal_info.username -_id'
+        },
+        options: {
+          sort: { publishedAt: -1 },
+          skip: (page - 1) * maxLimit,
+          limit: maxLimit
+        },
+        select: 'blog_id title des banner activity tags publishedAt -_id'
+      });
+  
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+  
+      // Return the populated bookmarked posts
+      res.status(200).json({ bookmarkedBlogs: user.bookmarkedPosts });
+    } catch (error) {
+      next(new ErrorHanlder(500, error.message));
+    }
+  };
+
+export const userBookmarksCount = async (req, res) => {
+    try {
+        const userId = req.user;
+        
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const bookmarksCount = user.bookmarkedPosts ? user.bookmarkedPosts.length : 0;
+        return res.status(200).json({ totalDocs: bookmarksCount });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 }
 
 export const deleteBlog = (req, res) => {
