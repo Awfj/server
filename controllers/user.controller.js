@@ -379,15 +379,23 @@ export const followUser = async (req, res) => {
     const session = await User.startSession();
     try {
       await session.withTransaction(async () => {
+        // Update following user
         await User.findByIdAndUpdate(
           userId,
-          { $addToSet: { following: targetUserId } },
+          { 
+            $addToSet: { following: targetUserId },
+            $inc: { "account_info.total_following": 1 }
+          },
           { session }
         );
 
+        // Update followed user
         await User.findByIdAndUpdate(
           targetUserId,
-          { $addToSet: { followers: userId } },
+          { 
+            $addToSet: { followers: userId },
+            $inc: { "account_info.total_followers": 1 }
+          },
           { session }
         );
       });
@@ -395,54 +403,14 @@ export const followUser = async (req, res) => {
       await session.endSession();
     }
 
-    res.status(200).json({ message: "User followed successfully" });
+    res.status(200).json({ 
+      message: "User followed successfully",
+      total_followers: targetUser.account_info.total_followers + 1
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
-// export const followUser = async (req, res) => {
-//   try {
-//     const userId = req.user; // Assuming user ID is available in req.user
-//     const { targetUserId } = req.body;
-
-//     // Add the target user to the current user's following list
-//     await User.findByIdAndUpdate(
-//       userId,
-//       { $addToSet: { following: targetUserId } },
-//       { new: true }
-//     );
-
-//     // Add the current user to the target user's followers list
-//     await User.findByIdAndUpdate(
-//       targetUserId,
-//       { $addToSet: { followers: userId } },
-//       { new: true }
-//     );
-
-//     res.status(200).json({ message: 'User followed successfully' });
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
-// export const getUserProfile = async (req, res) => {
-//   try {
-//     const userId = req.params.userId; // Assuming userId is passed as a parameter
-
-//     const user = await User.findById(userId).select('username email followers');
-
-//     if (!user) {
-//       return res.status(404).json({ error: 'User not found' });
-//     }
-
-//     // Calculate the followers count from the followers array
-//     const followersCount = user.followers.length;
-
-//     res.status(200).json({ user, followersCount });
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
 
 export const unfollowUser = async (req, res) => {
   try {
@@ -468,15 +436,23 @@ export const unfollowUser = async (req, res) => {
     const session = await User.startSession();
     try {
       await session.withTransaction(async () => {
+        // Update unfollowing user
         await User.findByIdAndUpdate(
           userId,
-          { $pull: { following: targetUserId } },
+          { 
+            $pull: { following: targetUserId },
+            $inc: { "account_info.total_following": -1 }
+          },
           { session }
         );
 
+        // Update unfollowed user
         await User.findByIdAndUpdate(
           targetUserId,
-          { $pull: { followers: userId } },
+          { 
+            $pull: { followers: userId },
+            $inc: { "account_info.total_followers": -1 }
+          },
           { session }
         );
       });
@@ -484,7 +460,10 @@ export const unfollowUser = async (req, res) => {
       await session.endSession();
     }
 
-    res.status(200).json({ message: "User unfollowed successfully" });
+    res.status(200).json({ 
+      message: "User unfollowed successfully",
+      total_followers: targetUser.account_info.total_followers - 1  
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -509,6 +488,104 @@ export const isFollowingUser = async (req, res) => {
     const isFollowing = user.following.includes(targetUserId);
 
     res.status(200).json({ isFollowing });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get user's followers with pagination
+export const getFollowers = async (req, res) => {
+  try {
+    const { user_id, page = 1 } = req.body;
+    const limit = 5;
+    const skip = (page - 1) * limit;
+
+    const user = await User.findById(user_id)
+      .populate({
+        path: 'followers',
+        select: 'personal_info.fullname personal_info.username personal_info.profile_img',
+        options: {
+          skip,
+          limit
+        }
+      });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({ 
+      followers: user.followers
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get users that the user is following with pagination
+export const getFollowing = async (req, res) => {
+  try {
+    const { user_id, page = 1 } = req.body;
+    const limit = 5;
+    const skip = (page - 1) * limit;
+
+    const user = await User.findById(user_id)
+      .populate({
+        path: 'following',
+        select: 'personal_info.fullname personal_info.username personal_info.profile_img',
+        options: {
+          skip,
+          limit
+        }
+      });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({ 
+      following: user.following
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get total followers count
+export const getFollowersCount = async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    
+    const user = await User.findById(user_id)
+      .select('followers');
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({ 
+      totalDocs: user.followers.length 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get total following count
+export const getFollowingCount = async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    
+    const user = await User.findById(user_id)
+      .select('following');
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({ 
+      totalDocs: user.following.length 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -11,6 +11,10 @@ import {
   followUser,
   unfollowUser,
   isFollowingUser,
+  getFollowers,
+  getFollowing,
+  getFollowersCount,
+  getFollowingCount,
 } from "../controllers/user.controller.js";
 import { verifyToken } from "../middleware/verifyUser.js";
 
@@ -27,5 +31,10 @@ userRouter.post("/update-profile", verifyToken, updateProfile);
 userRouter.post("/follow-user", verifyToken, followUser);
 userRouter.post("/unfollow-user", verifyToken, unfollowUser);
 userRouter.post("/is-following-user", verifyToken, isFollowingUser);
+
+userRouter.post("/get-followers", getFollowers);
+userRouter.post("/get-following", getFollowing);
+userRouter.post("/followers-count", getFollowersCount);
+userRouter.post("/following-count", getFollowingCount);
 
 export default userRouter;
