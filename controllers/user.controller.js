@@ -296,7 +296,6 @@ export const updateProfile = (req, res) => {
 
   let bioLimit = 150;
   if (username.length < 3) {
-    console.log(username)
     return res
       .status(403)
       .json({ error: "Username should be at least 3 letter long" });
@@ -348,4 +347,169 @@ export const updateProfile = (req, res) => {
       }
       return res.status(500).json({ error: err.message });
     });
+};
+
+// FOLLOWING AND UNFOLLOWING USERS
+export const followUser = async (req, res) => {
+  try {
+    const userId = req.user;
+    const { targetUserId } = req.body;
+
+    // Check if users exist
+    const [user, targetUser] = await Promise.all([
+      User.findById(userId),
+      User.findById(targetUserId),
+    ]);
+
+    if (!user || !targetUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Prevent self-following
+    if (userId === targetUserId) {
+      return res.status(400).json({ error: "You cannot follow yourself" });
+    }
+
+    // Check if already following
+    if (user.following.includes(targetUserId)) {
+      return res.status(400).json({ error: "Already following this user" });
+    }
+
+    // Add relationships using transaction
+    const session = await User.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await User.findByIdAndUpdate(
+          userId,
+          { $addToSet: { following: targetUserId } },
+          { session }
+        );
+
+        await User.findByIdAndUpdate(
+          targetUserId,
+          { $addToSet: { followers: userId } },
+          { session }
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    res.status(200).json({ message: "User followed successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+// export const followUser = async (req, res) => {
+//   try {
+//     const userId = req.user; // Assuming user ID is available in req.user
+//     const { targetUserId } = req.body;
+
+//     // Add the target user to the current user's following list
+//     await User.findByIdAndUpdate(
+//       userId,
+//       { $addToSet: { following: targetUserId } },
+//       { new: true }
+//     );
+
+//     // Add the current user to the target user's followers list
+//     await User.findByIdAndUpdate(
+//       targetUserId,
+//       { $addToSet: { followers: userId } },
+//       { new: true }
+//     );
+
+//     res.status(200).json({ message: 'User followed successfully' });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+// export const getUserProfile = async (req, res) => {
+//   try {
+//     const userId = req.params.userId; // Assuming userId is passed as a parameter
+
+//     const user = await User.findById(userId).select('username email followers');
+
+//     if (!user) {
+//       return res.status(404).json({ error: 'User not found' });
+//     }
+
+//     // Calculate the followers count from the followers array
+//     const followersCount = user.followers.length;
+
+//     res.status(200).json({ user, followersCount });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+export const unfollowUser = async (req, res) => {
+  try {
+    const userId = req.user;
+    const { targetUserId } = req.body;
+
+    // Check if users exist
+    const [user, targetUser] = await Promise.all([
+      User.findById(userId),
+      User.findById(targetUserId),
+    ]);
+
+    if (!user || !targetUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if actually following
+    if (!user.following.includes(targetUserId)) {
+      return res.status(400).json({ error: "Not following this user" });
+    }
+
+    // Remove relationships using transaction
+    const session = await User.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await User.findByIdAndUpdate(
+          userId,
+          { $pull: { following: targetUserId } },
+          { session }
+        );
+
+        await User.findByIdAndUpdate(
+          targetUserId,
+          { $pull: { followers: userId } },
+          { session }
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    res.status(200).json({ message: "User unfollowed successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const isFollowingUser = async (req, res) => {
+  try {
+    const userId = req.user;
+    const { targetUserId } = req.body;
+
+    // Check if users exist
+    const [user, targetUser] = await Promise.all([
+      User.findById(userId),
+      User.findById(targetUserId),
+    ]);
+
+    if (!user || !targetUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if actually following
+    const isFollowing = user.following.includes(targetUserId);
+
+    res.status(200).json({ isFollowing });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };

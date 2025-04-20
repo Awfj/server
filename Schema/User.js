@@ -104,6 +104,14 @@ const userSchema = mongoose.Schema(
         type: Number,
         default: 0,
       },
+      total_followers: {
+        type: Number,
+        default: 0,
+      },
+      total_following: {
+        type: Number,
+        default: 0,
+      },
     },
     google_auth: {
       type: Boolean,
@@ -117,6 +125,16 @@ const userSchema = mongoose.Schema(
     bookmarkedPosts: {
       type: [Schema.Types.ObjectId],
       ref: "blogs",
+      default: [],
+    },
+    followers: {
+      type: [Schema.Types.ObjectId],
+      ref: "users",
+      default: [],
+    },
+    following: {
+      type: [Schema.Types.ObjectId],
+      ref: "users",
       default: [],
     },
   },
