@@ -382,9 +382,9 @@ export const followUser = async (req, res) => {
         // Update following user
         await User.findByIdAndUpdate(
           userId,
-          { 
+          {
             $addToSet: { following: targetUserId },
-            $inc: { "account_info.total_following": 1 }
+            $inc: { "account_info.total_following": 1 },
           },
           { session }
         );
@@ -392,9 +392,9 @@ export const followUser = async (req, res) => {
         // Update followed user
         await User.findByIdAndUpdate(
           targetUserId,
-          { 
+          {
             $addToSet: { followers: userId },
-            $inc: { "account_info.total_followers": 1 }
+            $inc: { "account_info.total_followers": 1 },
           },
           { session }
         );
@@ -403,9 +403,9 @@ export const followUser = async (req, res) => {
       await session.endSession();
     }
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "User followed successfully",
-      total_followers: targetUser.account_info.total_followers + 1
+      total_followers: targetUser.account_info.total_followers + 1,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -414,8 +414,12 @@ export const followUser = async (req, res) => {
 
 export const unfollowUser = async (req, res) => {
   try {
-    const userId = req.user;
-    const { targetUserId } = req.body;
+    let userId = req.user;
+    const { targetUserId, currentUserId = null } = req.body;
+
+    if (currentUserId) {
+      userId = currentUserId;
+    }
 
     // Check if users exist
     const [user, targetUser] = await Promise.all([
@@ -439,9 +443,9 @@ export const unfollowUser = async (req, res) => {
         // Update unfollowing user
         await User.findByIdAndUpdate(
           userId,
-          { 
+          {
             $pull: { following: targetUserId },
-            $inc: { "account_info.total_following": -1 }
+            $inc: { "account_info.total_following": -1 },
           },
           { session }
         );
@@ -449,9 +453,9 @@ export const unfollowUser = async (req, res) => {
         // Update unfollowed user
         await User.findByIdAndUpdate(
           targetUserId,
-          { 
+          {
             $pull: { followers: userId },
-            $inc: { "account_info.total_followers": -1 }
+            $inc: { "account_info.total_followers": -1 },
           },
           { session }
         );
@@ -460,9 +464,9 @@ export const unfollowUser = async (req, res) => {
       await session.endSession();
     }
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "User unfollowed successfully",
-      total_followers: targetUser.account_info.total_followers - 1  
+      total_followers: targetUser.account_info.total_followers - 1,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -500,22 +504,22 @@ export const getFollowers = async (req, res) => {
     const limit = 5;
     const skip = (page - 1) * limit;
 
-    const user = await User.findById(user_id)
-      .populate({
-        path: 'followers',
-        select: 'personal_info.fullname personal_info.username personal_info.profile_img',
-        options: {
-          skip,
-          limit
-        }
-      });
+    const user = await User.findById(user_id).populate({
+      path: "followers",
+      select:
+        "personal_info.fullname personal_info.username personal_info.profile_img",
+      options: {
+        skip,
+        limit,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.status(200).json({ 
-      followers: user.followers
+    res.status(200).json({
+      followers: user.followers,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -529,22 +533,22 @@ export const getFollowing = async (req, res) => {
     const limit = 5;
     const skip = (page - 1) * limit;
 
-    const user = await User.findById(user_id)
-      .populate({
-        path: 'following',
-        select: 'personal_info.fullname personal_info.username personal_info.profile_img',
-        options: {
-          skip,
-          limit
-        }
-      });
+    const user = await User.findById(user_id).populate({
+      path: "following",
+      select:
+        "personal_info.fullname personal_info.username personal_info.profile_img",
+      options: {
+        skip,
+        limit,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.status(200).json({ 
-      following: user.following
+    res.status(200).json({
+      following: user.following,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -555,16 +559,15 @@ export const getFollowing = async (req, res) => {
 export const getFollowersCount = async (req, res) => {
   try {
     const { user_id } = req.body;
-    
-    const user = await User.findById(user_id)
-      .select('followers');
+
+    const user = await User.findById(user_id).select("followers");
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.status(200).json({ 
-      totalDocs: user.followers.length 
+    res.status(200).json({
+      totalDocs: user.followers.length,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -575,16 +578,15 @@ export const getFollowersCount = async (req, res) => {
 export const getFollowingCount = async (req, res) => {
   try {
     const { user_id } = req.body;
-    
-    const user = await User.findById(user_id)
-      .select('following');
+
+    const user = await User.findById(user_id).select("following");
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.status(200).json({ 
-      totalDocs: user.following.length 
+    res.status(200).json({
+      totalDocs: user.following.length,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
