@@ -4,6 +4,7 @@ import ErrorHanlder from "../utils/Errorhandler.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { nanoid } from "nanoid";
+import Blog from "../Schema/Blog.js";
 
 const generateUserName = async (email) => {
   let username = email.split("@")[0];
@@ -19,10 +20,7 @@ let emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
 let passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,20}$/;
 
 const formatDataToSend = (user) => {
-  const access_token = jwt.sign(
-    { id: user._id },
-    process.env.JWT_SECRET
-  );
+  const access_token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
   return {
     access_token,
     profile_img: user.personal_info.profile_img,
@@ -644,6 +642,59 @@ export const getUsersCount = async (req, res) => {
 
     const totalDocs = await User.countDocuments(findQuery);
     res.status(200).json({ totalDocs });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const deleteUser = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Don't allow deleting another admin
+    if (user.role === "admin") {
+      return res.status(403).json({ error: "Cannot delete admin users" });
+    }
+
+    // Delete user and their related data
+    const session = await User.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // Remove user from followers/following lists
+        await User.updateMany(
+          { $or: [{ followers: userId }, { following: userId }] },
+          {
+            $pull: {
+              followers: userId,
+              following: userId,
+            },
+            $inc: {
+              "account_info.total_followers": -1,
+              "account_info.total_following": -1,
+            },
+          },
+          { session }
+        );
+
+        // Delete user's blogs
+        if (user.blogs.length) {
+          await Blog.deleteMany({ _id: { $in: user.blogs } }, { session });
+        }
+
+        // Finally delete the user
+        await User.findByIdAndDelete(userId, { session });
+      });
+
+      res.status(200).json({ message: "User deleted successfully" });
+    } finally {
+      await session.endSession();
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
