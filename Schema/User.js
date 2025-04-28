@@ -30,6 +30,11 @@ let profile_imgs_collections_list = [
 
 const userSchema = mongoose.Schema(
   {
+    role: {
+      type: String,
+      enum: ["author", "moderator", "admin"],
+      default: "author",
+    },
     personal_info: {
       fullname: {
         type: String,
