@@ -15,8 +15,10 @@ import {
   getFollowing,
   getFollowersCount,
   getFollowingCount,
+  getUsers,
+  getUsersCount,
 } from "../controllers/user.controller.js";
-import { verifyToken } from "../middleware/verifyUser.js";
+import { verifyToken, checkRole } from "../middleware/verifyUser.js";
 
 const userRouter = express.Router();
 
@@ -36,5 +38,14 @@ userRouter.post("/get-followers", getFollowers);
 userRouter.post("/get-following", getFollowing);
 userRouter.post("/followers-count", getFollowersCount);
 userRouter.post("/following-count", getFollowingCount);
+
+userRouter.post("/get-users", verifyToken, getUsers);
+userRouter.post("/users-count", verifyToken, getUsersCount);
+
+// userRouter.post("/create-moderator", verifyToken, checkRole('admin'), register);
+// userRouter.post("/delete-user", verifyToken, checkRole('admin'), deleteUser);
+
+// userRouter.post("/ban-user", verifyToken, checkRole('admin', 'moderator'), banUser);
+// userRouter.post("/unban-user", verifyToken, checkRole('admin', 'moderator'), unbanUser);
 
 export default userRouter;

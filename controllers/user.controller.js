@@ -592,3 +592,55 @@ export const getFollowingCount = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// USERS MANAGEMENT
+export const getUsers = async (req, res) => {
+  try {
+    const { page = 1, query = "" } = req.body;
+    const limit = 10;
+    const skip = (page - 1) * limit;
+
+    let findQuery = {};
+    if (query) {
+      findQuery = {
+        $or: [
+          { "personal_info.username": new RegExp(query, "i") },
+          { "personal_info.fullname": new RegExp(query, "i") },
+        ],
+      };
+    }
+
+    const users = await User.find(findQuery)
+      .select(
+        "personal_info.fullname personal_info.username personal_info.profile_img account_info"
+      )
+      .skip(skip)
+      .limit(limit)
+      .sort({ joinedAt: -1 });
+
+    res.status(200).json({ users });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getUsersCount = async (req, res) => {
+  try {
+    const { query = "" } = req.body;
+
+    let findQuery = {};
+    if (query) {
+      findQuery = {
+        $or: [
+          { "personal_info.username": new RegExp(query, "i") },
+          { "personal_info.fullname": new RegExp(query, "i") },
+        ],
+      };
+    }
+
+    const totalDocs = await User.countDocuments(findQuery);
+    res.status(200).json({ totalDocs });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
