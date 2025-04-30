@@ -647,6 +647,41 @@ export const getUsersCount = async (req, res) => {
   }
 };
 
+// CHANGE USER ROLE
+export const changeUserRole = async (req, res) => {
+  try {
+    const { userId, newRole } = req.body;
+
+    // Validate role
+    const validRoles = ["author", "moderator", "admin"];
+    if (!validRoles.includes(newRole)) {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Don't allow changing admin's role
+    if (user.role === "admin" && newRole !== "admin") {
+      return res.status(403).json({ error: "Cannot change admin's role" });
+    }
+
+    // Update role
+    await User.findByIdAndUpdate(userId, { role: newRole });
+
+    res.status(200).json({
+      message: "Role updated successfully",
+      newRole,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// DELETE USER
 export const deleteUser = async (req, res) => {
   try {
     const { userId } = req.body;

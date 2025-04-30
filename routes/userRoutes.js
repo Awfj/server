@@ -17,6 +17,7 @@ import {
   getFollowingCount,
   getUsers,
   getUsersCount,
+  changeUserRole,
   deleteUser,
 } from "../controllers/user.controller.js";
 import { verifyToken, checkRole } from "../middleware/verifyUser.js";
@@ -44,6 +45,7 @@ userRouter.post("/get-users", verifyToken, getUsers);
 userRouter.post("/users-count", verifyToken, getUsersCount);
 
 // userRouter.post("/create-moderator", verifyToken, checkRole('admin'), register);
+userRouter.post("/change-user-role", verifyToken, checkRole('admin'), changeUserRole);
 userRouter.post("/delete-user", verifyToken, checkRole('admin'), deleteUser);
 
 // userRouter.post("/ban-user", verifyToken, checkRole('admin', 'moderator'), banUser);
